@@ -35,7 +35,7 @@ def filter_data(df: pd.DataFrame) -> pd.DataFrame:
 
 def send_email_with_attachment(df, today):
     # Gửi email kèm file Excel
-    subject = f"Báo cáo danh sách lớp cần chú ý - {today.strftime('%d/%m/%Y')}"
+    subject = f"[Báo cáo {today.strftime('%d/%m/%Y')}] Danh sách lớp sắp khai giảng (2 tuần tới)"
 
     msg = MIMEMultipart()
     msg["From"] = FROM_EMAIL
@@ -43,13 +43,19 @@ def send_email_with_attachment(df, today):
     msg["Subject"] = subject
 
     if df.empty:
-        body = f"Hôm nay là {today.strftime('%d/%m/%Y')}.\nKhông có lớp nào cần chú ý."
+        body = f"Hôm nay là {today.strftime('%d/%m/%Y')}.\nKhông có lớp nào có sĩ số thấp, cần chú ý trong 2 tuần tới."
         msg.attach(MIMEText(body, "plain"))
     else:
         filename = f"report_{today}.xlsx"
         df.to_excel(filename, index=False)
 
-        body = f"Hôm nay là {today.strftime('%d/%m/%Y')}.\nĐính kèm file danh sách lớp cần chú ý."
+
+        body = f"""Xin chào Chị,
+
+        Đính kèm danh sách các lớp sẽ khai giảng trong vòng 14 ngày tới và hiện có dưới 15 học viên.
+            
+        File báo cáo: {filename}"""
+        
         msg.attach(MIMEText(body, "plain"))
 
         with open(filename, "rb") as f:
