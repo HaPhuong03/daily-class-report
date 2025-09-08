@@ -2,7 +2,7 @@ name: Daily Report
 
 on:
   schedule:
-    - cron: "0 10 * * *" # 10:00 UTC = 17:00 VN
+    - cron: "*/2 * * * *" 
   workflow_dispatch:
 
 jobs:
