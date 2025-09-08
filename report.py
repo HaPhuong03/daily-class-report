@@ -8,7 +8,11 @@ from email.mime.base import MIMEBase
 from email import encoders
 import os
 
-CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTfT4Y2v7BaO_ylomuFIKHfqQ0y-w37ritzpxbJVJcw0EgtLvPhNqi1yhDbzfi-EBWpM33NSC8sSsWE/pub?output=csv"
+CSV_URL = os.environ["CSV_URL"]
+FROM_EMAIL = os.environ["FROM_EMAIL"]
+FROM_PASSWORD = os.environ["FROM_PASSWORD"]
+TO_EMAIL = os.environ["TO_EMAIL"]
+
 
 def load_data(url: str) -> pd.DataFrame:
     df = pd.read_csv(url)
@@ -28,10 +32,6 @@ def filter_data(df: pd.DataFrame) -> pd.DataFrame:
     # Có < 15 học viên
     mask = (today <= df["start_date"]) & (df["start_date"] <= cutoff) & (df["total_student"] < 15)
     return df.loc[mask]
-
-FROM_EMAIL = "03nguyenhaphuong@gmail.com"
-FROM_PASSWORD = "ackx pfeb wugn heoe" 
-TO_EMAIL = "launguyen927@gmail.com"         
 
 def send_email_with_attachment(df, today):
     # Gửi email kèm file Excel

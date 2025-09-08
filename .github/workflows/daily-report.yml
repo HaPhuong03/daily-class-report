@@ -1,0 +1,41 @@
+name: Daily Report
+
+on:
+  schedule:
+    - cron: "0 10 * * *" # 10:00 UTC = 17:00 VN
+  workflow_dispatch:
+
+jobs:
+  run-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run report
+        env:
+          CSV_URL: ${{ secrets.CSV_URL }}
+          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
+          FROM_PASSWORD: ${{ secrets.FROM_PASSWORD }}
+          TO_EMAIL: ${{ secrets.TO_EMAIL }}
+          DEMO_MODE: "true"
+        run: |
+          python report.py
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: report
+          path: report_*.xlsx
+          if-no-files-found: ignore
