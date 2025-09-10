@@ -1,6 +1,5 @@
 import pandas as pd
-from datetime import datetime, timedelta
-
+from datetime import datetime
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -8,34 +7,41 @@ from email.mime.base import MIMEBase
 from email import encoders
 import os
 
-CSV_URL = os.environ["CSV_URL"]
+CSV_URL = os.environ["CSV_URL"]       
+CONFIG_URL = os.environ["CONFIG_URL"] 
 FROM_EMAIL = os.environ["FROM_EMAIL"]
 FROM_PASSWORD = os.environ["FROM_PASSWORD"]
 TO_EMAIL = os.environ["TO_EMAIL"]
 
-
 def load_data(url: str) -> pd.DataFrame:
-    df = pd.read_csv(url)
-    return df
+    return pd.read_csv(url)
 
+def load_config(url: str) -> dict:
+    config_df = pd.read_csv(url)
+    config = dict(zip(config_df["key"], config_df["value"]))
+    return {
+        "days_ahead": int(config.get("days_ahead", 14)),
+        "min_students": int(config.get("min_students", 15)),
+    }
 
-def filter_data(df: pd.DataFrame) -> pd.DataFrame:
-    # Lọc các lớp bắt đầu trong 14 ngày tới
-    today = pd.Timestamp.today().normalize() 
-    cutoff = today + pd.Timedelta(days=14)
+def filter_data(df: pd.DataFrame, days_ahead: int, min_students: int) -> pd.DataFrame:
+    today = pd.Timestamp.today().normalize()
+    cutoff = today + pd.Timedelta(days=days_ahead)
 
     df["start_date"] = pd.to_datetime(df["start_date"], errors="coerce")
 
-    # Dịch 2023 -> 2025 để test
+    # Dịch 2023 -> 2025
     df["start_date"] = df["start_date"] + pd.DateOffset(years=2)
 
-    # Có < 15 học viên
-    mask = (today <= df["start_date"]) & (df["start_date"] <= cutoff) & (df["total_student"] < 15)
+    mask = (
+        (today <= df["start_date"]) &
+        (df["start_date"] <= cutoff) &
+        (df["total_student"] < min_students)
+    )
     return df.loc[mask]
 
 def send_email_with_attachment(df, today):
-    # Gửi email kèm file Excel
-    subject = f"[Báo cáo {today.strftime('%d/%m/%Y')}] Danh sách lớp sắp khai giảng (2 tuần tới)"
+    subject = f"Báo cáo danh sách lớp cần chú ý - {today.strftime('%d/%m/%Y')}"
 
     msg = MIMEMultipart()
     msg["From"] = FROM_EMAIL
@@ -43,19 +49,13 @@ def send_email_with_attachment(df, today):
     msg["Subject"] = subject
 
     if df.empty:
-        body = f"Hôm nay là {today.strftime('%d/%m/%Y')}.\nKhông có lớp nào có sĩ số thấp, cần chú ý trong 2 tuần tới."
+        body = f"Hôm nay là {today.strftime('%d/%m/%Y')}.\nKhông có lớp nào cần chú ý."
         msg.attach(MIMEText(body, "plain"))
     else:
         filename = f"report_{today}.xlsx"
         df.to_excel(filename, index=False)
 
-
-        body = f"""Xin chào Chị,
-
-        Đính kèm danh sách các lớp sẽ khai giảng trong vòng 14 ngày tới và hiện có dưới 15 học viên.
-            
-        File báo cáo: {filename}"""
-        
+        body = f"Hôm nay là {today.strftime('%d/%m/%Y')}.\nĐính kèm file danh sách lớp cần chú ý."
         msg.attach(MIMEText(body, "plain"))
 
         with open(filename, "rb") as f:
@@ -65,26 +65,27 @@ def send_email_with_attachment(df, today):
         part.add_header("Content-Disposition", f"attachment; filename={filename}")
         msg.attach(part)
 
-    # Gửi email
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(FROM_EMAIL, FROM_PASSWORD)
         server.sendmail(FROM_EMAIL, TO_EMAIL, msg.as_string())
 
-    print(f"✅ Đã gửi email báo cáo tới {TO_EMAIL}")
-
+    print(f" Đã gửi email báo cáo tới {TO_EMAIL}")
 
 if __name__ == "__main__":
     df = load_data(CSV_URL)
-    filtered = filter_data(df)
+    config = load_config(CONFIG_URL)
 
+    days_ahead = config["days_ahead"]
+    min_students = config["min_students"]
+
+    filtered = filter_data(df, days_ahead, min_students)
     today = datetime.today().date()
-    print(f"\nHôm nay là {today.strftime('%d/%m/%Y')}")
 
+    print(f"\nHôm nay là {today.strftime('%d/%m/%Y')}")
     if not filtered.empty:
-        print("Các lớp cần chú ý (bắt đầu trong 14 ngày tới và có < 15 học viên):")
+        print(f"Các lớp cần chú ý (bắt đầu trong {days_ahead} ngày tới và có < {min_students} học viên):")
         print(filtered)
     else:
-        print("Không có lớp nào cần chú ý trong 14 ngày tới.")
+        print(f"Không có lớp nào cần chú ý trong {days_ahead} ngày tới.")
 
-    # Gửi mail sau khi in ra màn hình
     send_email_with_attachment(filtered, today)
