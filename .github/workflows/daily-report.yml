@@ -24,7 +24,6 @@ jobs:
 
       - name: Run report
         env:
-        env:
           CONFIG_URL: ${{ secrets.CONFIG_URL }}
           CSV_URL: ${{ secrets.CSV_URL }}
           FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
